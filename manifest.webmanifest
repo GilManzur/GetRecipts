@@ -1,0 +1,19 @@
+{
+  "name": "מערכת דיווח קבלות",
+  "short_name": "דיווח קבלות",
+  "description": "אפליקציית דיווח קבלות מהירה לנייד עם סנכרון ל-Google Sheets ו-Google Drive.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#e4e4d8",
+  "theme_color": "#55674b",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

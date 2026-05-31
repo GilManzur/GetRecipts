@@ -4,7 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>מערכת דיווח קבלות</title>
+  <meta name="theme-color" content="#55674b">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -14,6 +17,9 @@
   <div class="app-shell">
     <header class="hero">
       <h1>דיווח קבלות מהיר מהטלפון</h1>
+      <div class="hero__actions">
+        <button type="button" class="hero-install-btn" id="installAppBtn">הוסף למסך הבית</button>
+      </div>
     </header>
 
     <main class="layout">
@@ -132,6 +138,14 @@
       <div class="loading-spinner"></div>
       <h3>הדיווח נשלח</h3>
       <p>מעלה קבלה ומסנכרן נתונים לגיליון. אנא המתן.</p>
+    </div>
+  </div>
+
+  <div class="loading-overlay hidden" id="installHelpOverlay" aria-live="polite">
+    <div class="loading-card">
+      <h3>התקנת האפליקציה</h3>
+      <p id="installHelpText">בדפדפנים תומכים יופיע חלון התקנה. ב-iPhone יש לפתוח את תפריט השיתוף ואז לבחור "הוסף למסך הבית".</p>
+      <button type="button" class="primary-btn install-close-btn" id="closeInstallHelpBtn">סגור</button>
     </div>
   </div>
 

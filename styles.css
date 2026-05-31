@@ -77,6 +77,23 @@ textarea {
   letter-spacing: -0.02em;
 }
 
+.hero__actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.hero-install-btn {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+}
+
 .layout {
   display: grid;
   gap: 18px;
@@ -465,6 +482,11 @@ textarea {
   margin: 0;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.install-close-btn {
+  width: 100%;
+  margin-top: 18px;
 }
 
 .loading-spinner {

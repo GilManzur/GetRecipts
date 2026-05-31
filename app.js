@@ -21,6 +21,7 @@ let submittingEntryId = null;
 let entries = loadEntries();
 let syncQueue = [];
 let syncInFlight = false;
+let deferredInstallPrompt = null;
 let dashboardState = {
   units: [],
   recentReports: [],
@@ -46,20 +47,35 @@ const dropzone = document.getElementById("dropzone");
 const syncBridgeForm = document.getElementById("syncBridgeForm");
 const payloadInput = document.getElementById("payloadInput");
 const loadingOverlay = document.getElementById("loadingOverlay");
+const installAppBtn = document.getElementById("installAppBtn");
+const installHelpOverlay = document.getElementById("installHelpOverlay");
+const installHelpText = document.getElementById("installHelpText");
 
 document.getElementById("removeFileBtn").addEventListener("click", clearSelectedFile);
 document.getElementById("resetBtn").addEventListener("click", resetForm);
 document.getElementById("refreshDashboardBtn").addEventListener("click", loadDashboardData);
+document.getElementById("closeInstallHelpBtn").addEventListener("click", () => {
+  installHelpOverlay.classList.add("hidden");
+});
+installAppBtn.addEventListener("click", handleInstallClick);
 
 fileInput.addEventListener("change", handleFileSelect);
 form.addEventListener("submit", handleSubmit);
 window.addEventListener("message", handleMessageFromScript);
 window.addEventListener("DOMContentLoaded", bootstrap);
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+});
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+});
 
 function bootstrap() {
   if (APPS_SCRIPT_URL) {
     localStorage.setItem(SCRIPT_URL_KEY, APPS_SCRIPT_URL);
   }
+  registerServiceWorker();
   setDefaultPurchaseDate();
   setupValidation();
   updateConnectionUI();
@@ -577,6 +593,42 @@ function setDefaultPurchaseDate() {
   const month = String(today.getMonth() + 1).padStart(2, "0");
   const day = String(today.getDate()).padStart(2, "0");
   dateInput.value = `${year}-${month}-${day}`;
+}
+
+async function handleInstallClick() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    try {
+      await deferredInstallPrompt.userChoice;
+    } catch {
+      // Ignore user cancellation.
+    }
+    deferredInstallPrompt = null;
+    return;
+  }
+
+  if (isIos()) {
+    installHelpText.textContent = 'ב-iPhone פתח את תפריט השיתוף בדפדפן ואז בחר "הוסף למסך הבית".';
+  } else {
+    installHelpText.textContent = 'אם לא הופיע חלון התקנה, פתח את תפריט הדפדפן ובחר "Install app" או "Add to Home screen".';
+  }
+  installHelpOverlay.classList.remove("hidden");
+}
+
+function isIos() {
+  return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) {
+    return;
+  }
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch(() => {
+      // Ignore registration failure.
+    });
+  });
 }
 
 function getScriptUrl() {
