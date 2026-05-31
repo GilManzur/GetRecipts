@@ -381,8 +381,9 @@ function renderHistory() {
 function loadDashboardData() {
   const scriptUrl = getScriptUrl();
   if (!scriptUrl) {
-    dashboardState.error = "לא הוגדרה כתובת Apps Script.";
+    dashboardState = buildLocalDashboardState_("לא הוגדרה כתובת Apps Script. מוצגים נתונים מקומיים.");
     renderUnitSummaries();
+    renderHistory();
     return;
   }
 
@@ -402,7 +403,7 @@ function loadDashboardData() {
 
   const timeout = window.setTimeout(() => {
     cleanup();
-    dashboardState.error = "לא ניתן לטעון נתונים מהגיליון.";
+    dashboardState = buildLocalDashboardState_("לא ניתן לטעון נתונים מהגיליון. מוצגים נתונים מקומיים. אם ההעלאה עובדת והרענון נכשל, יש לפרוס מחדש את Apps Script.");
     renderUnitSummaries();
     renderHistory();
   }, 10000);
@@ -425,7 +426,7 @@ function loadDashboardData() {
   script.onerror = () => {
     window.clearTimeout(timeout);
     cleanup();
-    dashboardState.error = "טעינת נתוני הגיליון נכשלה.";
+    dashboardState = buildLocalDashboardState_("טעינת נתוני הגיליון נכשלה. מוצגים נתונים מקומיים. אם ההעלאה עובדת והרענון נכשל, יש לפרוס מחדש את Apps Script.");
     renderUnitSummaries();
     renderHistory();
   };
@@ -599,20 +600,18 @@ async function handleInstallClick() {
   if (deferredInstallPrompt) {
     deferredInstallPrompt.prompt();
     try {
-      await deferredInstallPrompt.userChoice;
+      const choice = await deferredInstallPrompt.userChoice;
+      if (choice && choice.outcome === "dismissed") {
+        showInstallHelp();
+      }
     } catch {
-      // Ignore user cancellation.
+      showInstallHelp();
     }
     deferredInstallPrompt = null;
     return;
   }
 
-  if (isIos()) {
-    installHelpText.textContent = 'ב-iPhone פתח את תפריט השיתוף בדפדפן ואז בחר "הוסף למסך הבית".';
-  } else {
-    installHelpText.textContent = 'אם לא הופיע חלון התקנה, פתח את תפריט הדפדפן ובחר "Install app" או "Add to Home screen".';
-  }
-  installHelpOverlay.classList.remove("hidden");
+  showInstallHelp();
 }
 
 function isIos() {
@@ -631,8 +630,58 @@ function registerServiceWorker() {
   });
 }
 
+function showInstallHelp() {
+  if (isIos()) {
+    installHelpText.textContent = 'ב-iPhone פתח את תפריט השיתוף בדפדפן ואז בחר "הוסף למסך הבית".';
+  } else {
+    installHelpText.textContent = 'אם לא הופיע חלון התקנה, פתח את תפריט הדפדפן ובחר "Install app" או "Add to Home screen".';
+  }
+  installHelpOverlay.classList.remove("hidden");
+}
+
 function getScriptUrl() {
   return APPS_SCRIPT_URL || localStorage.getItem(SCRIPT_URL_KEY) || "";
+}
+
+function buildLocalDashboardState_(message) {
+  const totals = new Map();
+  const recentReports = entries.slice(0, 20).map((entry) => ({
+    timestamp: entry.syncedAt || entry.createdAt || "",
+    company: entry.company,
+    submitterName: entry.submitterName,
+    role: entry.role,
+    amount: Number(entry.amount || 0),
+    purchaseDate: entry.purchaseDate,
+    comments: entry.comments || "",
+    fileName: entry.fileName || "",
+    driveFileUrl: entry.driveUrl || "",
+    syncStatus: entry.syncStatus || "local-only",
+    localId: entry.localId || ""
+  }));
+
+  entries.forEach((entry) => {
+    const current = totals.get(entry.company) || { unitName: entry.company, reportsCount: 0, totalAmount: 0 };
+    current.reportsCount += 1;
+    current.totalAmount += Number(entry.amount || 0);
+    totals.set(entry.company, current);
+  });
+
+  const units = Array.from(totals.values())
+    .map((unit) => ({
+      ...unit,
+      remainingBudget: typeof UNIT_BUDGETS[unit.unitName] === "number"
+        ? Math.max(0, UNIT_BUDGETS[unit.unitName] - unit.totalAmount)
+        : undefined
+    }))
+    .sort((a, b) => b.totalAmount - a.totalAmount);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    units,
+    recentReports,
+    loaded: true,
+    error: message
+  };
 }
 
 function formatCurrency(amount) {

@@ -1,6 +1,6 @@
 {
-  "name": "מערכת דיווח קבלות",
-  "short_name": "דיווח קבלות",
+  "name": "מערכת דיווח קבלות 7016",
+  "short_name": "דיווח קבלות 7016",
   "description": "אפליקציית דיווח קבלות מהירה לנייד עם סנכרון ל-Google Sheets ו-Google Drive.",
   "start_url": "./",
   "display": "standalone",

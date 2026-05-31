@@ -1,4 +1,4 @@
-const CACHE_NAME = "getrecipts-static-v1";
+const CACHE_NAME = "getrecipts-static-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -28,6 +28,24 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") {
+    return;
+  }
+
+  const requestUrl = new URL(event.request.url);
+
+  // For local app files, prefer network first so installed phones pick up updates.
+  if (requestUrl.origin === self.location.origin) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match("./index.html")))
+    );
     return;
   }
 
