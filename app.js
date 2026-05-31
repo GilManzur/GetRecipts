@@ -5,6 +5,7 @@ const MAX_IMAGE_DIMENSION = 1600;
 const JPEG_QUALITY = 0.82;
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 const MAX_LOCAL_ENTRIES = 20;
+const LAST_NAME_KEY = "receipt_last_name_v1";
 const LAST_UNIT_KEY = "receipt_last_unit_v1";
 const LAST_ROLE_KEY = "receipt_last_role_v1";
 const UNIT_BUDGETS = {
@@ -396,7 +397,10 @@ function loadDashboardData() {
   const callbackName = `receiptDashboardCallback_${Date.now()}`;
   const separator = scriptUrl.includes("?") ? "&" : "?";
   const script = document.createElement("script");
-  script.src = `${scriptUrl}${separator}action=dashboard&callback=${callbackName}`;
+  const requestUrl = `${scriptUrl}${separator}action=dashboard&callback=${callbackName}&_ts=${Date.now()}`;
+  script.src = requestUrl;
+  script.async = true;
+  script.crossOrigin = "anonymous";
 
   let cleaned = false;
   const cleanup = () => {
@@ -431,12 +435,62 @@ function loadDashboardData() {
   script.onerror = () => {
     window.clearTimeout(timeout);
     cleanup();
-    dashboardState = buildLocalDashboardState_("טעינת נתוני הגיליון נכשלה. מוצגים נתונים מקומיים. אם ההעלאה עובדת והרענון נכשל, יש לפרוס מחדש את Apps Script.");
+    loadDashboardDataFallback(callbackName);
+  };
+
+  document.body.appendChild(script);
+}
+
+function loadDashboardDataFallback(callbackName) {
+  const scriptUrl = getScriptUrl();
+  const separator = scriptUrl.includes("?") ? "&" : "?";
+  const fallbackScript = document.createElement("script");
+  fallbackScript.src = `${scriptUrl}${separator}action=dashboard&callback=${callbackName}&mobile=1&_ts=${Date.now()}`;
+  fallbackScript.async = true;
+
+  const timeout = window.setTimeout(() => {
+    cleanupDashboardCallback(callbackName, fallbackScript);
+    dashboardState = buildLocalDashboardState_("טעינת נתוני הגיליון נכשלה. מוצגים נתונים מקומיים. בטלפון נסה לפתוח את האתר בדפדפן הרגיל ולא רק מהמסך הראשי.");
+    renderUnitSummaries();
+    renderHistory();
+  }, 10000);
+
+  const originalCallback = window[callbackName];
+  window[callbackName] = (payload) => {
+    window.clearTimeout(timeout);
+    cleanupDashboardCallback(callbackName, fallbackScript);
+    if (typeof originalCallback === "function") {
+      originalCallback(payload);
+    } else {
+      dashboardState = {
+        generatedAt: payload.generatedAt,
+        units: Array.isArray(payload.units) ? payload.units : [],
+        recentReports: Array.isArray(payload.recentReports) ? payload.recentReports : [],
+        loaded: true,
+        error: ""
+      };
+      updateUnitOptions();
+      renderUnitSummaries();
+      renderHistory();
+    }
+  };
+
+  fallbackScript.onerror = () => {
+    window.clearTimeout(timeout);
+    cleanupDashboardCallback(callbackName, fallbackScript);
+    dashboardState = buildLocalDashboardState_("טעינת נתוני הגיליון נכשלה. מוצגים נתונים מקומיים. בטלפון נסה לפתוח את האתר בדפדפן הרגיל ולא רק מהמסך הראשי.");
     renderUnitSummaries();
     renderHistory();
   };
 
-  document.body.appendChild(script);
+  document.body.appendChild(fallbackScript);
+}
+
+function cleanupDashboardCallback(callbackName, scriptElement) {
+  if (scriptElement && scriptElement.parentNode) {
+    scriptElement.parentNode.removeChild(scriptElement);
+  }
+  delete window[callbackName];
 }
 
 function enqueueSync(localId) {
@@ -602,6 +656,9 @@ function setDefaultPurchaseDate() {
 }
 
 function saveSubmissionDefaults(payload) {
+  if (payload.submitterName) {
+    localStorage.setItem(LAST_NAME_KEY, payload.submitterName);
+  }
   if (payload.company) {
     localStorage.setItem(LAST_UNIT_KEY, payload.company);
   }
@@ -611,9 +668,13 @@ function saveSubmissionDefaults(payload) {
 }
 
 function restoreSavedDefaults() {
+  const savedName = localStorage.getItem(LAST_NAME_KEY) || "";
   const savedUnit = localStorage.getItem(LAST_UNIT_KEY) || "";
   const savedRole = localStorage.getItem(LAST_ROLE_KEY) || "";
 
+  if (savedName) {
+    document.getElementById("submitterName").value = savedName;
+  }
   if (savedUnit) {
     companySelect.value = savedUnit;
   }
