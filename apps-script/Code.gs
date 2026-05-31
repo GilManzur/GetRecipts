@@ -1,4 +1,4 @@
-const DRIVE_FOLDER_ID = 'PUT_YOUR_DRIVE_FOLDER_ID_HERE';
+const DRIVE_FOLDER_ID = '1sbY3E5t70_TO4CHe1Kp782iM2nEDa-I0';
 const DEFAULT_HEADERS = [
   'timestamp',
   'company',

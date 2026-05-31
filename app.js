@@ -5,6 +5,8 @@ const MAX_IMAGE_DIMENSION = 1600;
 const JPEG_QUALITY = 0.82;
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 const MAX_LOCAL_ENTRIES = 20;
+const LAST_UNIT_KEY = "receipt_last_unit_v1";
+const LAST_ROLE_KEY = "receipt_last_role_v1";
 const UNIT_BUDGETS = {
   "חרמ''ש": 7400,
   "פלס''ם": 7400,
@@ -77,6 +79,7 @@ function bootstrap() {
   }
   registerServiceWorker();
   setDefaultPurchaseDate();
+  restoreSavedDefaults();
   setupValidation();
   updateConnectionUI();
   renderUnitSummaries();
@@ -254,6 +257,8 @@ async function handleSubmit(event) {
     createdAt: new Date().toISOString()
   };
 
+  saveSubmissionDefaults(payload);
+
   const hasScript = Boolean(getScriptUrl());
   const entry = {
     ...payload,
@@ -323,10 +328,10 @@ function renderUnitSummaries() {
 }
 
 function renderHistory() {
-  const source = dashboardState.recentReports.length ? dashboardState.recentReports : entries;
+  const source = dashboardState.recentReports;
 
   if (!source.length) {
-    historyList.innerHTML = '<div class="empty-state">עדיין אין דיווחים להצגה.</div>';
+    historyList.innerHTML = '<div class="empty-state">עדיין אין דיווחים מהגיליון להצגה.</div>';
     return;
   }
 
@@ -596,6 +601,27 @@ function setDefaultPurchaseDate() {
   dateInput.value = `${year}-${month}-${day}`;
 }
 
+function saveSubmissionDefaults(payload) {
+  if (payload.company) {
+    localStorage.setItem(LAST_UNIT_KEY, payload.company);
+  }
+  if (payload.role) {
+    localStorage.setItem(LAST_ROLE_KEY, payload.role);
+  }
+}
+
+function restoreSavedDefaults() {
+  const savedUnit = localStorage.getItem(LAST_UNIT_KEY) || "";
+  const savedRole = localStorage.getItem(LAST_ROLE_KEY) || "";
+
+  if (savedUnit) {
+    companySelect.value = savedUnit;
+  }
+  if (savedRole) {
+    document.getElementById("role").value = savedRole;
+  }
+}
+
 async function handleInstallClick() {
   if (deferredInstallPrompt) {
     deferredInstallPrompt.prompt();
@@ -644,41 +670,10 @@ function getScriptUrl() {
 }
 
 function buildLocalDashboardState_(message) {
-  const totals = new Map();
-  const recentReports = entries.slice(0, 20).map((entry) => ({
-    timestamp: entry.syncedAt || entry.createdAt || "",
-    company: entry.company,
-    submitterName: entry.submitterName,
-    role: entry.role,
-    amount: Number(entry.amount || 0),
-    purchaseDate: entry.purchaseDate,
-    comments: entry.comments || "",
-    fileName: entry.fileName || "",
-    driveFileUrl: entry.driveUrl || "",
-    syncStatus: entry.syncStatus || "local-only",
-    localId: entry.localId || ""
-  }));
-
-  entries.forEach((entry) => {
-    const current = totals.get(entry.company) || { unitName: entry.company, reportsCount: 0, totalAmount: 0 };
-    current.reportsCount += 1;
-    current.totalAmount += Number(entry.amount || 0);
-    totals.set(entry.company, current);
-  });
-
-  const units = Array.from(totals.values())
-    .map((unit) => ({
-      ...unit,
-      remainingBudget: typeof UNIT_BUDGETS[unit.unitName] === "number"
-        ? Math.max(0, UNIT_BUDGETS[unit.unitName] - unit.totalAmount)
-        : undefined
-    }))
-    .sort((a, b) => b.totalAmount - a.totalAmount);
-
   return {
     generatedAt: new Date().toISOString(),
-    units,
-    recentReports,
+    units: [],
+    recentReports: [],
     loaded: true,
     error: message
   };
