@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>מערכת דיווח קבלות</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <h1>דיווח קבלות מהיר מהטלפון</h1>
+    </header>
+
+    <main class="layout">
+      <section class="panel panel--form">
+        <div class="panel__head">
+          <div>
+            <p class="eyebrow">טופס דיווח</p>
+            <h2>העלאת קבלה חדשה</h2>
+          </div>
+          <div class="sync-pill" id="syncPill">מצב מקומי</div>
+        </div>
+
+        <form id="receiptForm" class="receipt-form" novalidate>
+          <label class="field">
+            <span>פלוגה / יחידה</span>
+            <select id="company" required>
+              <option value="">בחר יחידה</option>
+              <option value="חרמ''ש">פלוגת חרמ"ש</option>
+              <option value="פלס''ם">פלס"ם</option>
+              <option value="פלוגה כ'">פלוגה כ'</option>
+              <option value="פלוגה ל'">פלוגה ל'</option>
+              <option value="פלוגה מ'">פלוגה מ'</option>
+              <option value="פת''ן">פת"ן</option>
+              <option value="פלוגת מבצעים">פלוגת מבצעים</option>
+            </select>
+          </label>
+
+          <div class="grid-2">
+            <label class="field">
+              <span>שם מגיש</span>
+              <input id="submitterName" type="text" placeholder="ישראל ישראלי" required>
+            </label>
+            <label class="field">
+              <span>תפקיד</span>
+              <input id="role" type="text" placeholder='מ"פ / סמ"פ / רס"פ' required>
+            </label>
+          </div>
+
+          <div class="grid-2">
+            <label class="field">
+              <span>סכום</span>
+              <input id="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>
+            </label>
+            <label class="field">
+              <span>תאריך רכישה</span>
+              <input id="purchaseDate" type="date" required>
+            </label>
+          </div>
+
+          <label class="field">
+            <span>הערות</span>
+            <textarea id="comments" rows="3" placeholder="פירוט הרכישה, ספק, מטרת הרכש וכו'"></textarea>
+          </label>
+
+          <div class="field">
+            <span>צילום קבלה</span>
+            <label class="upload-card" for="fileInput" id="dropzone">
+              <input id="fileInput" type="file" accept="image/*" capture="environment" hidden required>
+              <div class="upload-card__copy" id="uploadPrompt">
+                <strong>צלם או העלה קבלה</strong>
+                <p>המערכת תומכת בצילום ישיר מהנייד ובדחיסת קבצים גדולים.</p>
+              </div>
+              <div class="upload-preview hidden" id="previewWrap">
+                <img id="previewImage" alt="תצוגת קבלה">
+                <div class="upload-preview__meta">
+                  <strong id="previewName"></strong>
+                  <span id="previewSize"></span>
+                </div>
+                <button type="button" class="tiny-btn" id="removeFileBtn">הסר</button>
+              </div>
+            </label>
+          </div>
+
+          <div class="status hidden" id="statusBox"></div>
+
+          <div class="sticky-actions">
+            <button type="submit" class="primary-btn" id="submitBtn">שמור דיווח</button>
+            <button type="button" class="secondary-btn" id="resetBtn">ניקוי</button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="stack">
+        <section class="panel panel--compact">
+          <div class="panel__head">
+            <div>
+              <p class="eyebrow">מעקב</p>
+              <h2>תקציב לפי יחידה</h2>
+            </div>
+            <button type="button" class="secondary-btn secondary-btn--small" id="refreshDashboardBtn">רענון</button>
+          </div>
+          <div class="sheet-note" id="dashboardMeta">נטען מהגיליון המרכזי</div>
+          <div class="unit-summary-list" id="unitSummaryList"></div>
+        </section>
+
+        <section class="panel panel--compact">
+          <div class="panel__head">
+            <div>
+              <p class="eyebrow">היסטוריה</p>
+              <h2>דיווחים מהגיליון</h2>
+            </div>
+          </div>
+          <div class="history-list" id="historyList"></div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <iframe name="uploadTarget" id="uploadTarget" class="hidden" title="upload target"></iframe>
+  <form id="syncBridgeForm" class="hidden" method="POST" target="uploadTarget">
+    <input type="hidden" name="payload" id="payloadInput">
+  </form>
+
+  <div class="loading-overlay hidden" id="loadingOverlay" aria-live="polite" aria-busy="true">
+    <div class="loading-card">
+      <div class="loading-spinner"></div>
+      <h3>הדיווח נשלח</h3>
+      <p>מעלה קבלה ומסנכרן נתונים לגיליון. אנא המתן.</p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
