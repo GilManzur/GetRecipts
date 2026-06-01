@@ -73,15 +73,18 @@ window.addEventListener("DOMContentLoaded", bootstrap);
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
   deferredInstallPrompt = event;
+  installAppBtn.classList.remove("hidden");
 });
 window.addEventListener("appinstalled", () => {
   deferredInstallPrompt = null;
+  installAppBtn.classList.add("hidden");
 });
 
 function bootstrap() {
   if (APPS_SCRIPT_URL) {
     localStorage.setItem(SCRIPT_URL_KEY, APPS_SCRIPT_URL);
   }
+  initializeInstallButton();
   registerServiceWorker();
   setDefaultPurchaseDate();
   restoreSavedDefaults();
@@ -315,6 +318,7 @@ function resetForm() {
   form.reset();
   setDefaultPurchaseDate();
   clearSelectedFile();
+  restoreSavedDefaults();
   form.querySelectorAll(".has-error").forEach((element) => element.classList.remove("has-error"));
   form.querySelectorAll(".is-invalid").forEach((element) => element.classList.remove("is-invalid"));
   dropzone.classList.remove("is-invalid");
@@ -728,11 +732,48 @@ async function handleInstallClick() {
     return;
   }
 
+  const delayedPrompt = await waitForInstallPrompt(1200);
+  if (delayedPrompt) {
+    deferredInstallPrompt = delayedPrompt;
+    return handleInstallClick();
+  }
+
   showInstallHelp();
 }
 
 function isIos() {
   return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+}
+
+function initializeInstallButton() {
+  if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) {
+    installAppBtn.classList.add("hidden");
+    return;
+  }
+
+  installAppBtn.classList.remove("hidden");
+}
+
+function waitForInstallPrompt(timeoutMs) {
+  if (deferredInstallPrompt) {
+    return Promise.resolve(deferredInstallPrompt);
+  }
+
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const interval = window.setInterval(() => {
+      if (deferredInstallPrompt) {
+        window.clearInterval(interval);
+        resolve(deferredInstallPrompt);
+        return;
+      }
+
+      if (Date.now() - start >= timeoutMs) {
+        window.clearInterval(interval);
+        resolve(null);
+      }
+    }, 100);
+  });
 }
 
 function registerServiceWorker() {
