@@ -178,6 +178,16 @@ textarea {
   font-size: 0.95rem;
 }
 
+.upload-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.upload-action-btn {
+  min-height: 48px;
+}
+
 .field input,
 .field select,
 .field textarea {
@@ -526,6 +536,11 @@ textarea {
 
   .grid-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .upload-actions {
+    grid-template-columns: repeat(2, max-content);
+    justify-content: start;
   }
 
   .sticky-actions {

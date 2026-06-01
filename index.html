@@ -79,11 +79,15 @@
 
           <div class="field">
             <span>צילום קבלה</span>
-            <label class="upload-card" for="fileInput" id="dropzone">
+            <div class="upload-actions">
+              <button type="button" class="secondary-btn secondary-btn--small upload-action-btn" id="cameraBtn">צלם קבלה</button>
+              <button type="button" class="secondary-btn secondary-btn--small upload-action-btn" id="galleryBtn">בחר מהגלריה</button>
+            </div>
+            <label class="upload-card" id="dropzone">
               <input id="fileInput" type="file" accept="image/*" hidden required>
               <div class="upload-card__copy" id="uploadPrompt">
-                <strong>צלם או העלה קבלה</strong>
-                <p>אפשר לצלם קבלה או לבחור תמונה קיימת מהמכשיר.</p>
+                <strong>צרף צילום קבלה</strong>
+                <p>אפשר לצלם קבלה חדשה או לבחור תמונה קיימת מהמכשיר.</p>
               </div>
               <div class="upload-preview hidden" id="previewWrap">
                 <img id="previewImage" alt="תצוגת קבלה">

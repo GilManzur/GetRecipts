@@ -53,6 +53,8 @@ const loadingOverlay = document.getElementById("loadingOverlay");
 const installAppBtn = document.getElementById("installAppBtn");
 const installHelpOverlay = document.getElementById("installHelpOverlay");
 const installHelpText = document.getElementById("installHelpText");
+const cameraBtn = document.getElementById("cameraBtn");
+const galleryBtn = document.getElementById("galleryBtn");
 
 document.getElementById("removeFileBtn").addEventListener("click", clearSelectedFile);
 document.getElementById("resetBtn").addEventListener("click", resetForm);
@@ -61,6 +63,8 @@ document.getElementById("closeInstallHelpBtn").addEventListener("click", () => {
   installHelpOverlay.classList.add("hidden");
 });
 installAppBtn.addEventListener("click", handleInstallClick);
+cameraBtn.addEventListener("click", () => openFilePicker("camera"));
+galleryBtn.addEventListener("click", () => openFilePicker("gallery"));
 
 fileInput.addEventListener("change", handleFileSelect);
 form.addEventListener("submit", handleSubmit);
@@ -197,13 +201,13 @@ async function prepareImage(file) {
     };
   }
 
-  const bitmap = await createImageBitmap(file);
-  const ratio = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(bitmap.width, bitmap.height));
+  const imageSource = await loadImageForCanvas(file);
+  const ratio = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(imageSource.width, imageSource.height));
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * ratio);
-  canvas.height = Math.round(bitmap.height * ratio);
+  canvas.width = Math.round(imageSource.width * ratio);
+  canvas.height = Math.round(imageSource.height * ratio);
   const ctx = canvas.getContext("2d");
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(imageSource, 0, 0, canvas.width, canvas.height);
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY));
   const compressedFile = new File([blob], renameFileAsJpg(file.name), { type: "image/jpeg" });
 
@@ -211,6 +215,24 @@ async function prepareImage(file) {
     file: compressedFile,
     base64: await fileToDataUrl(compressedFile)
   };
+}
+
+async function loadImageForCanvas(file) {
+  if ("createImageBitmap" in window) {
+    try {
+      return await createImageBitmap(file);
+    } catch {
+      // Fall back below for browsers with partial support.
+    }
+  }
+
+  const dataUrl = await fileToDataUrl(file);
+  return await new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = dataUrl;
+  });
 }
 
 function renameFileAsJpg(name) {
@@ -231,6 +253,7 @@ function clearSelectedFile() {
   selectedFile = null;
   selectedBase64 = "";
   fileInput.value = "";
+  fileInput.removeAttribute("capture");
   previewWrap.classList.add("hidden");
   uploadPrompt.classList.remove("hidden");
   previewImage.removeAttribute("src");
@@ -655,6 +678,16 @@ function setDefaultPurchaseDate() {
   dateInput.value = `${year}-${month}-${day}`;
 }
 
+function openFilePicker(mode) {
+  fileInput.value = "";
+  if (mode === "camera") {
+    fileInput.setAttribute("capture", "environment");
+  } else {
+    fileInput.removeAttribute("capture");
+  }
+  fileInput.click();
+}
+
 function saveSubmissionDefaults(payload) {
   if (payload.submitterName) {
     localStorage.setItem(LAST_NAME_KEY, payload.submitterName);
@@ -687,12 +720,9 @@ async function handleInstallClick() {
   if (deferredInstallPrompt) {
     deferredInstallPrompt.prompt();
     try {
-      const choice = await deferredInstallPrompt.userChoice;
-      if (choice && choice.outcome === "dismissed") {
-        showInstallHelp();
-      }
+      await deferredInstallPrompt.userChoice;
     } catch {
-      showInstallHelp();
+      // Ignore prompt errors and do not show fallback if prompt was shown.
     }
     deferredInstallPrompt = null;
     return;
