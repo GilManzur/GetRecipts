@@ -37,21 +37,27 @@
         </div>
 
         <form id="receiptForm" class="receipt-form" novalidate>
-          <label class="field">
-            <span>פלוגה / יחידה</span>
-            <select id="company" required>
-              <option value="">בחר יחידה</option>
-              <option value="חרמ''ש">פלוגת חרמ"ש</option>
-              <option value="פלס''ם">פלס"ם</option>
-              <option value="פלוגה כ'">פלוגה כ'</option>
-              <option value="פלוגה ל'">פלוגה ל'</option>
-              <option value="פלוגה מ'">פלוגה מ'</option>
-              <option value="פת''ן">פת"ן</option>
-              <option value="פלוגת מבצעים">פלוגת מבצעים</option>
-            </select>
-          </label>
+          <div class="grid-2 grid-2--compact">
+            <label class="field">
+              <span>פלוגה / יחידה</span>
+              <select id="company" required>
+                <option value="">בחר יחידה</option>
+                <option value="חרמ''ש">פלוגת חרמ"ש</option>
+                <option value="פלס''ם">פלס"ם</option>
+                <option value="פלוגה כ'">פלוגה כ'</option>
+                <option value="פלוגה ל'">פלוגה ל'</option>
+                <option value="פלוגה מ'">פלוגה מ'</option>
+                <option value="פת''ן">פת"ן</option>
+                <option value="פלוגת מבצעים">פלוגת מבצעים</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>תאריך רכישה</span>
+              <input id="purchaseDate" type="date" required>
+            </label>
+          </div>
 
-          <div class="grid-2">
+          <div class="grid-2 grid-2--compact">
             <label class="field">
               <span>שם מגיש</span>
               <input id="submitterName" type="text" placeholder="ישראל ישראלי" required>
@@ -62,16 +68,10 @@
             </label>
           </div>
 
-          <div class="grid-2">
-            <label class="field">
-              <span>סכום</span>
-              <input id="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>
-            </label>
-            <label class="field">
-              <span>תאריך רכישה</span>
-              <input id="purchaseDate" type="date" required>
-            </label>
-          </div>
+          <label class="field">
+            <span>סכום</span>
+            <input id="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>
+          </label>
 
           <label class="field">
             <span>הערות</span>
