@@ -86,14 +86,15 @@ textarea {
   justify-content: end;
   margin-top: 0;
   flex-shrink: 0;
+  gap: 6px;
 }
 
 .hero-install-btn {
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 50%;
-  width: 34px;
-  height: 34px;
-  min-height: 34px;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
   padding: 0;
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
