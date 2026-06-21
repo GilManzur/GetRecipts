@@ -45,7 +45,7 @@ textarea {
 .app-shell {
   width: min(680px, calc(100% - 20px));
   margin: 0 auto;
-  padding: 10px 0 calc(86px + env(safe-area-inset-bottom, 0px));
+  padding: 10px 0 calc(68px + env(safe-area-inset-bottom, 0px));
 }
 
 .hero {
@@ -251,20 +251,6 @@ textarea {
   box-shadow: 0 0 0 3px rgba(174, 65, 56, 0.08);
 }
 
-.upload-card__copy {
-  display: grid;
-  place-items: center;
-  min-height: 142px;
-  text-align: center;
-  gap: 8px;
-  color: var(--muted);
-}
-
-.upload-card__copy strong {
-  color: var(--ink);
-  font-size: 1.05rem;
-}
-
 .upload-preview {
   display: grid;
   gap: 12px;
@@ -305,14 +291,10 @@ textarea {
 }
 
 .sticky-actions {
-  position: sticky;
-  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 10px;
   padding-top: 10px;
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 2px);
-  background: linear-gradient(180deg, rgba(251, 251, 247, 0), rgba(251, 251, 247, 0.97) 36%);
 }
 
 .primary-btn,
@@ -531,8 +513,8 @@ textarea {
   z-index: 20;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  gap: 6px;
+  padding: 7px 10px calc(7px + env(safe-area-inset-bottom, 0px));
   background: rgba(244, 243, 235, 0.96);
   border-top: 1px solid rgba(201, 203, 187, 0.95);
   backdrop-filter: blur(14px);
@@ -540,26 +522,28 @@ textarea {
 
 .bottom-tab {
   border: 0;
-  border-radius: 16px;
-  min-height: 54px;
+  border-radius: 12px;
+  min-height: 44px;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
   display: grid;
   place-items: center;
-  gap: 2px;
+  gap: 1px;
+  padding: 4px 8px;
+  font-size: 0.82rem;
   font-weight: 800;
 }
 
 .bottom-tab span:first-child {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   line-height: 1;
 }
 
 .bottom-tab--active {
   background: var(--brand);
   color: #fff;
-  box-shadow: 0 10px 22px rgba(85, 103, 75, 0.22);
+  box-shadow: 0 6px 14px rgba(85, 103, 75, 0.18);
 }
 
 .loading-overlay {
@@ -631,7 +615,4 @@ textarea {
     justify-content: start;
   }
 
-  .sticky-actions {
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
-  }
 }

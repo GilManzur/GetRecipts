@@ -40,7 +40,6 @@ const previewWrap = document.getElementById("previewWrap");
 const previewImage = document.getElementById("previewImage");
 const previewName = document.getElementById("previewName");
 const previewSize = document.getElementById("previewSize");
-const uploadPrompt = document.getElementById("uploadPrompt");
 const statusBox = document.getElementById("statusBox");
 const submitBtn = document.getElementById("submitBtn");
 const companySelect = document.getElementById("company");
@@ -201,8 +200,8 @@ async function handleFileSelect(event) {
     previewImage.src = processed.base64;
     previewName.textContent = processed.file.name;
     previewSize.textContent = formatBytes(processed.file.size);
+    dropzone.classList.remove("hidden");
     previewWrap.classList.remove("hidden");
-    uploadPrompt.classList.add("hidden");
     validateField(fileInput);
   } catch (error) {
     console.error(error);
@@ -272,8 +271,8 @@ function clearSelectedFile() {
   selectedBase64 = "";
   fileInput.value = "";
   fileInput.removeAttribute("capture");
+  dropzone.classList.add("hidden");
   previewWrap.classList.add("hidden");
-  uploadPrompt.classList.remove("hidden");
   previewImage.removeAttribute("src");
   validateField(fileInput);
 }
@@ -738,7 +737,7 @@ function handleMessageFromScript(event) {
     entry.driveUrl = parsed.fileUrl || "";
     entry.syncedAt = parsed.syncedAt || new Date().toISOString();
     entry.syncError = "";
-    showStatus("הקבלה נשמרה בהצלחה ב-Google Drive וב-Google Sheets.", "success");
+    showStatus("הקבלה נשמרה בהצלחה!", "success");
     loadDashboardData();
   } else {
     entry.syncStatus = "error";
