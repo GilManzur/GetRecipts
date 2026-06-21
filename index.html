@@ -26,6 +26,7 @@
     </header>
 
     <main class="layout">
+      <section class="tab-panel tab-panel--active" id="reportTabPanel" data-tab-panel="report">
       <section class="panel panel--form">
         <div class="panel__head">
           <div>
@@ -108,32 +109,43 @@
           </div>
         </form>
       </section>
+      </section>
 
-      <aside class="stack">
-        <section class="panel panel--compact">
-          <div class="panel__head">
-            <div>
-              <p class="eyebrow">מעקב</p>
-              <h2>תקציב לפי יחידה</h2>
-            </div>
-            <button type="button" class="secondary-btn secondary-btn--small" id="refreshDashboardBtn">רענון</button>
-          </div>
-          <div class="sheet-note" id="dashboardMeta">נטען מהגיליון המרכזי</div>
-          <div class="unit-summary-list" id="unitSummaryList"></div>
-        </section>
-
+      <section class="tab-panel" id="historyTabPanel" data-tab-panel="history">
         <section class="panel panel--compact">
           <div class="panel__head">
             <div>
               <p class="eyebrow">היסטוריה</p>
-              <h2>דיווחים מהגיליון</h2>
+              <h2>דיווחים לפי יחידה</h2>
             </div>
+            <button type="button" class="secondary-btn secondary-btn--small" id="refreshDashboardBtn">רענון</button>
           </div>
+
+          <label class="field history-unit-field">
+            <span>בחר יחידה להצגה</span>
+            <select id="historyUnit">
+              <option value="">בחר יחידה</option>
+            </select>
+          </label>
+
+          <div class="sheet-note" id="dashboardMeta">נטען מהגיליון המרכזי</div>
+          <div class="budget-summary" id="budgetSummary"></div>
           <div class="history-list" id="historyList"></div>
         </section>
-      </aside>
+      </section>
     </main>
   </div>
+
+  <nav class="bottom-tabs" aria-label="ניווט ראשי">
+    <button type="button" class="bottom-tab bottom-tab--active" data-tab="report" aria-controls="reportTabPanel" aria-selected="true">
+      <span aria-hidden="true">＋</span>
+      <span>דיווח</span>
+    </button>
+    <button type="button" class="bottom-tab" data-tab="history" aria-controls="historyTabPanel" aria-selected="false">
+      <span aria-hidden="true">≡</span>
+      <span>היסטוריה</span>
+    </button>
+  </nav>
 
   <iframe name="uploadTarget" id="uploadTarget" class="hidden" title="upload target"></iframe>
   <form id="syncBridgeForm" class="hidden" method="POST" target="uploadTarget">

@@ -16,7 +16,7 @@ const DEFAULT_HEADERS = [
 function doGet(e) {
   const action = e && e.parameter ? e.parameter.action : '';
   if (action === 'dashboard') {
-    return buildJsonpResponse_(getDashboardData_(), e.parameter.callback);
+    return buildJsonpResponse_(getDashboardData_(e.parameter.unit || ''), e.parameter.callback);
   }
 
   return HtmlService.createHtmlOutput('Receipt backend is running.');
@@ -173,12 +173,13 @@ function buildBridgeResponse(payload) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function getDashboardData_() {
+function getDashboardData_(selectedUnit) {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   if (!spreadsheet) {
     throw new Error('This script must be deployed as a bound script from the target Google Sheet.');
   }
 
+  const requestedUnit = String(selectedUnit || '').trim();
   const sheets = spreadsheet.getSheets();
   const unitSummaries = [];
   const recentReports = [];
@@ -199,19 +200,21 @@ function getDashboardData_() {
       const amount = Number(row[4] || 0);
       totalAmount += amount;
 
-      recentReports.push({
-        timestamp: toIsoString_(row[0]),
-        company: row[1] || sheet.getName(),
-        submitterName: row[2] || '',
-        role: row[3] || '',
-        amount: amount,
-        purchaseDate: row[5] || '',
-        comments: row[6] || '',
-        fileName: row[7] || '',
-        driveFileUrl: row[8] || '',
-        syncStatus: row[9] || 'synced',
-        localId: row[10] || ''
-      });
+      if (requestedUnit && sheet.getName() === requestedUnit) {
+        recentReports.push({
+          timestamp: toIsoString_(row[0]),
+          company: row[1] || sheet.getName(),
+          submitterName: row[2] || '',
+          role: row[3] || '',
+          amount: amount,
+          purchaseDate: row[5] || '',
+          comments: row[6] || '',
+          fileName: row[7] || '',
+          driveFileUrl: row[8] || '',
+          syncStatus: row[9] || 'synced',
+          localId: row[10] || ''
+        });
+      }
     }
 
     unitSummaries.push({
@@ -232,7 +235,7 @@ function getDashboardData_() {
   return {
     generatedAt: new Date().toISOString(),
     units: unitSummaries,
-    recentReports: recentReports.slice(0, 20)
+    recentReports: recentReports
   };
 }
 

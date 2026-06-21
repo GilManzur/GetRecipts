@@ -43,9 +43,9 @@ textarea {
 }
 
 .app-shell {
-  width: min(1120px, calc(100% - 24px));
+  width: min(680px, calc(100% - 20px));
   margin: 0 auto;
-  padding: 18px 0 28px;
+  padding: 10px 0 calc(86px + env(safe-area-inset-bottom, 0px));
 }
 
 .hero {
@@ -55,8 +55,8 @@ textarea {
     linear-gradient(145deg, rgba(85, 103, 75, 0.98), rgba(61, 75, 53, 0.96)),
     linear-gradient(135deg, rgba(255, 255, 255, 0.07), transparent);
   color: #fff;
-  border-radius: 30px;
-  padding: 30px 22px;
+  border-radius: 22px;
+  padding: 18px 16px;
   box-shadow: var(--shadow);
   text-align: center;
 }
@@ -72,9 +72,9 @@ textarea {
 
 .hero h1 {
   margin: 0;
-  font-size: clamp(2rem, 6vw, 3.15rem);
-  line-height: 1.04;
-  letter-spacing: -0.02em;
+  font-size: 1.65rem;
+  line-height: 1.1;
+  letter-spacing: 0;
 }
 
 .hero__actions {
@@ -103,21 +103,23 @@ textarea {
 }
 
 .layout {
-  display: grid;
-  gap: 18px;
+  display: block;
   margin-top: 18px;
 }
 
-.stack {
-  display: grid;
-  gap: 18px;
+.tab-panel {
+  display: none;
+}
+
+.tab-panel--active {
+  display: block;
 }
 
 .panel {
   background: color-mix(in srgb, var(--panel) 92%, white 8%);
   border: 1px solid rgba(201, 203, 187, 0.9);
-  border-radius: var(--radius);
-  padding: 18px;
+  border-radius: 18px;
+  padding: 16px;
   box-shadow: var(--shadow);
 }
 
@@ -304,7 +306,7 @@ textarea {
 
 .sticky-actions {
   position: sticky;
-  bottom: 0;
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 10px;
@@ -358,17 +360,71 @@ textarea {
   width: 100%;
 }
 
-.unit-summary-list,
+.budget-summary,
 .history-list {
   display: grid;
   gap: 12px;
 }
 
+.history-unit-field {
+  margin-bottom: 14px;
+}
+
+.budget-card,
 .unit-card {
   border: 1px solid #d9dbcd;
   border-radius: 18px;
   padding: 14px;
   background: #fafaf5;
+}
+
+.budget-card {
+  display: grid;
+  gap: 12px;
+}
+
+.budget-card__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.budget-card__head strong {
+  font-size: 1.05rem;
+}
+
+.budget-card__head span {
+  color: var(--muted);
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.budget-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.budget-metric {
+  min-width: 0;
+  border-radius: 14px;
+  background: #eceee4;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.budget-metric span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.budget-metric strong {
+  color: var(--brand-strong);
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
 }
 
 .unit-card__top {
@@ -469,6 +525,43 @@ textarea {
   color: var(--muted);
 }
 
+.bottom-tabs {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: rgba(244, 243, 235, 0.96);
+  border-top: 1px solid rgba(201, 203, 187, 0.95);
+  backdrop-filter: blur(14px);
+}
+
+.bottom-tab {
+  border: 0;
+  border-radius: 16px;
+  min-height: 54px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  font-weight: 800;
+}
+
+.bottom-tab span:first-child {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.bottom-tab--active {
+  background: var(--brand);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(85, 103, 75, 0.22);
+}
+
 .loading-overlay {
   position: fixed;
   inset: 0;
@@ -525,13 +618,8 @@ textarea {
 
 @media (min-width: 760px) {
   .app-shell {
-    width: min(1180px, calc(100% - 40px));
+    width: min(760px, calc(100% - 40px));
     padding-top: 24px;
-  }
-
-  .layout {
-    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.78fr);
-    align-items: start;
   }
 
   .grid-2 {
@@ -544,8 +632,6 @@ textarea {
   }
 
   .sticky-actions {
-    position: static;
-    background: transparent;
-    padding-bottom: 0;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   }
 }

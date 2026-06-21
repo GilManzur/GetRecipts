@@ -8,6 +8,7 @@ const MAX_LOCAL_ENTRIES = 20;
 const LAST_NAME_KEY = "receipt_last_name_v1";
 const LAST_UNIT_KEY = "receipt_last_unit_v1";
 const LAST_ROLE_KEY = "receipt_last_role_v1";
+const HISTORY_UNIT_KEY = "receipt_history_unit_v1";
 const UNIT_BUDGETS = {
   "חרמ''ש": 7400,
   "פלס''ם": 7400,
@@ -25,6 +26,7 @@ let entries = loadEntries();
 let syncQueue = [];
 let syncInFlight = false;
 let deferredInstallPrompt = null;
+let selectedHistoryUnit = localStorage.getItem(HISTORY_UNIT_KEY) || localStorage.getItem(LAST_UNIT_KEY) || "";
 let dashboardState = {
   units: [],
   recentReports: [],
@@ -42,8 +44,9 @@ const uploadPrompt = document.getElementById("uploadPrompt");
 const statusBox = document.getElementById("statusBox");
 const submitBtn = document.getElementById("submitBtn");
 const companySelect = document.getElementById("company");
+const historyUnitSelect = document.getElementById("historyUnit");
 const historyList = document.getElementById("historyList");
-const unitSummaryList = document.getElementById("unitSummaryList");
+const budgetSummary = document.getElementById("budgetSummary");
 const dashboardMeta = document.getElementById("dashboardMeta");
 const syncPill = document.getElementById("syncPill");
 const dropzone = document.getElementById("dropzone");
@@ -55,6 +58,11 @@ const installHelpOverlay = document.getElementById("installHelpOverlay");
 const installHelpText = document.getElementById("installHelpText");
 const cameraBtn = document.getElementById("cameraBtn");
 const galleryBtn = document.getElementById("galleryBtn");
+const tabButtons = Array.from(document.querySelectorAll("[data-tab]"));
+const tabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
+const originalUnitOptionLabels = new Map(
+  Array.from(companySelect.options).map((option) => [option.value, option.textContent])
+);
 
 document.getElementById("removeFileBtn").addEventListener("click", clearSelectedFile);
 document.getElementById("resetBtn").addEventListener("click", resetForm);
@@ -67,7 +75,12 @@ cameraBtn.addEventListener("click", () => openFilePicker("camera"));
 galleryBtn.addEventListener("click", () => openFilePicker("gallery"));
 
 fileInput.addEventListener("change", handleFileSelect);
+companySelect.addEventListener("change", handleReportUnitChange);
+historyUnitSelect.addEventListener("change", handleHistoryUnitChange);
 form.addEventListener("submit", handleSubmit);
+tabButtons.forEach((button) => {
+  button.addEventListener("click", () => activateTab(button.dataset.tab));
+});
 window.addEventListener("message", handleMessageFromScript);
 window.addEventListener("DOMContentLoaded", bootstrap);
 window.addEventListener("beforeinstallprompt", (event) => {
@@ -88,9 +101,11 @@ function bootstrap() {
   registerServiceWorker();
   setDefaultPurchaseDate();
   restoreSavedDefaults();
+  populateHistoryUnitOptions();
+  setHistoryUnit(selectedHistoryUnit, { persist: false, load: false });
   setupValidation();
   updateConnectionUI();
-  renderUnitSummaries();
+  renderBudgetSummary();
   renderHistory();
   updateUnitOptions();
   loadDashboardData();
@@ -330,7 +345,7 @@ function showStatus(message, type) {
   statusBox.classList.remove("hidden");
 }
 
-function renderUnitSummaries() {
+function renderDashboardMeta() {
   if (dashboardState.error) {
     dashboardMeta.textContent = dashboardState.error;
   } else if (dashboardState.loaded) {
@@ -338,28 +353,60 @@ function renderUnitSummaries() {
   } else {
     dashboardMeta.textContent = "טוען נתונים מהגיליון...";
   }
+}
 
-  if (!dashboardState.units.length) {
-    unitSummaryList.innerHTML = '<div class="empty-state">עדיין אין נתוני יחידות בגיליון.</div>';
+function renderBudgetSummary() {
+  renderDashboardMeta();
+
+  if (!selectedHistoryUnit) {
+    budgetSummary.innerHTML = '<div class="empty-state">בחר יחידה כדי לראות תקציב והיסטוריית דיווחים.</div>';
     return;
   }
 
-  unitSummaryList.innerHTML = dashboardState.units.map((unit) => `
-    <article class="unit-card">
-      <div class="unit-card__top">
-        <div class="unit-card__name">${escapeHtml(unit.unitName)}</div>
-        <div class="unit-card__amount">${formatCurrency(unit.totalAmount)}</div>
+  const unit = getSelectedUnitSummary();
+  const submitted = Number(unit?.totalAmount || 0);
+  const reportsCount = Number(unit?.reportsCount || 0);
+  const budget = UNIT_BUDGETS[selectedHistoryUnit];
+  const budgetHtml = typeof budget === "number"
+    ? `
+      <div class="budget-metric">
+        <span>תקציב</span>
+        <strong>${formatCurrency(budget)}</strong>
       </div>
-      <div class="unit-card__meta">${Number(unit.reportsCount || 0)} דיווחים${typeof unit.remainingBudget === "number" ? ` • נותר ${formatCurrency(unit.remainingBudget)}` : ""}</div>
-    </article>
-  `).join("");
+      <div class="budget-metric">
+        <span>נותר</span>
+        <strong>${formatCurrency(Math.max(0, budget - submitted))}</strong>
+      </div>
+    `
+    : "";
+
+  budgetSummary.innerHTML = `
+    <div class="budget-card">
+      <div class="budget-card__head">
+        <strong>${escapeHtml(getUnitLabel(selectedHistoryUnit))}</strong>
+        <span>${reportsCount} דיווחים</span>
+      </div>
+      <div class="budget-grid">
+        ${budgetHtml}
+        <div class="budget-metric">
+          <span>הוגש עד כה</span>
+          <strong>${formatCurrency(submitted)}</strong>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function renderHistory() {
-  const source = dashboardState.recentReports;
+  if (!selectedHistoryUnit) {
+    historyList.innerHTML = '<div class="empty-state">ההיסטוריה תוצג אחרי בחירת יחידה.</div>';
+    return;
+  }
+
+  const source = getHistoryEntriesForSelectedUnit();
 
   if (!source.length) {
-    historyList.innerHTML = '<div class="empty-state">עדיין אין דיווחים מהגיליון להצגה.</div>';
+    historyList.innerHTML = '<div class="empty-state">עדיין אין דיווחים ליחידה שנבחרה.</div>';
     return;
   }
 
@@ -411,11 +458,105 @@ function renderHistory() {
   }).join("");
 }
 
+function getHistoryEntriesForSelectedUnit() {
+  const seen = new Set();
+  const dashboardEntries = Array.isArray(dashboardState.recentReports)
+    ? dashboardState.recentReports.filter((entry) => entry.company === selectedHistoryUnit)
+    : [];
+  const localEntries = entries.filter((entry) => entry.company === selectedHistoryUnit);
+  const merged = [];
+
+  [...localEntries, ...dashboardEntries].forEach((entry) => {
+    const key = entry.localId || entry.id || `${entry.timestamp || entry.createdAt}-${entry.amount}-${entry.fileName}`;
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    merged.push(entry);
+  });
+
+  return merged.sort((a, b) => {
+    const aTime = new Date(a.timestamp || a.createdAt || a.syncedAt || 0).getTime();
+    const bTime = new Date(b.timestamp || b.createdAt || b.syncedAt || 0).getTime();
+    return bTime - aTime;
+  });
+}
+
+function getSelectedUnitSummary() {
+  const sheetUnit = dashboardState.units.find((unit) => unit.unitName === selectedHistoryUnit);
+  if (sheetUnit) {
+    return sheetUnit;
+  }
+
+  const localEntries = entries.filter((entry) => entry.company === selectedHistoryUnit);
+  return {
+    unitName: selectedHistoryUnit,
+    reportsCount: localEntries.length,
+    totalAmount: localEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0)
+  };
+}
+
+function getUnitLabel(unitValue) {
+  return originalUnitOptionLabels.get(unitValue) || unitValue;
+}
+
+function populateHistoryUnitOptions() {
+  historyUnitSelect.innerHTML = Array.from(companySelect.options)
+    .map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(originalUnitOptionLabels.get(option.value) || option.textContent)}</option>`)
+    .join("");
+}
+
+function handleReportUnitChange() {
+  const unit = companySelect.value;
+  if (!unit) {
+    return;
+  }
+
+  localStorage.setItem(LAST_UNIT_KEY, unit);
+  setHistoryUnit(unit, { persist: true, load: true });
+}
+
+function handleHistoryUnitChange() {
+  setHistoryUnit(historyUnitSelect.value, { persist: true, load: true });
+}
+
+function setHistoryUnit(unit, options = {}) {
+  selectedHistoryUnit = unit || "";
+  historyUnitSelect.value = selectedHistoryUnit;
+
+  if (options.persist) {
+    if (selectedHistoryUnit) {
+      localStorage.setItem(HISTORY_UNIT_KEY, selectedHistoryUnit);
+    } else {
+      localStorage.removeItem(HISTORY_UNIT_KEY);
+    }
+  }
+
+  renderBudgetSummary();
+  renderHistory();
+
+  if (options.load) {
+    loadDashboardData();
+  }
+}
+
+function activateTab(tabName) {
+  tabButtons.forEach((button) => {
+    const isActive = button.dataset.tab === tabName;
+    button.classList.toggle("bottom-tab--active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  });
+
+  tabPanels.forEach((panel) => {
+    panel.classList.toggle("tab-panel--active", panel.dataset.tabPanel === tabName);
+  });
+}
+
 function loadDashboardData() {
   const scriptUrl = getScriptUrl();
   if (!scriptUrl) {
     dashboardState = buildLocalDashboardState_("לא הוגדרה כתובת Apps Script. מוצגים נתונים מקומיים.");
-    renderUnitSummaries();
+    renderBudgetSummary();
     renderHistory();
     return;
   }
@@ -424,7 +565,8 @@ function loadDashboardData() {
   const callbackName = `receiptDashboardCallback_${Date.now()}`;
   const separator = scriptUrl.includes("?") ? "&" : "?";
   const script = document.createElement("script");
-  const requestUrl = `${scriptUrl}${separator}action=dashboard&callback=${callbackName}&_ts=${Date.now()}`;
+  const unitParam = selectedHistoryUnit ? `&unit=${encodeURIComponent(selectedHistoryUnit)}` : "";
+  const requestUrl = `${scriptUrl}${separator}action=dashboard&callback=${callbackName}${unitParam}&_ts=${Date.now()}`;
   script.src = requestUrl;
   script.async = true;
   script.crossOrigin = "anonymous";
@@ -440,7 +582,7 @@ function loadDashboardData() {
   const timeout = window.setTimeout(() => {
     cleanup();
     dashboardState = buildLocalDashboardState_("לא ניתן לטעון נתונים מהגיליון. מוצגים נתונים מקומיים. אם ההעלאה עובדת והרענון נכשל, יש לפרוס מחדש את Apps Script.");
-    renderUnitSummaries();
+    renderBudgetSummary();
     renderHistory();
   }, 10000);
 
@@ -455,7 +597,7 @@ function loadDashboardData() {
       error: ""
     };
     updateUnitOptions();
-    renderUnitSummaries();
+    renderBudgetSummary();
     renderHistory();
   };
 
@@ -472,13 +614,14 @@ function loadDashboardDataFallback(callbackName) {
   const scriptUrl = getScriptUrl();
   const separator = scriptUrl.includes("?") ? "&" : "?";
   const fallbackScript = document.createElement("script");
-  fallbackScript.src = `${scriptUrl}${separator}action=dashboard&callback=${callbackName}&mobile=1&_ts=${Date.now()}`;
+  const unitParam = selectedHistoryUnit ? `&unit=${encodeURIComponent(selectedHistoryUnit)}` : "";
+  fallbackScript.src = `${scriptUrl}${separator}action=dashboard&callback=${callbackName}${unitParam}&mobile=1&_ts=${Date.now()}`;
   fallbackScript.async = true;
 
   const timeout = window.setTimeout(() => {
     cleanupDashboardCallback(callbackName, fallbackScript);
     dashboardState = buildLocalDashboardState_("טעינת נתוני הגיליון נכשלה. מוצגים נתונים מקומיים. בטלפון נסה לפתוח את האתר בדפדפן הרגיל ולא רק מהמסך הראשי.");
-    renderUnitSummaries();
+    renderBudgetSummary();
     renderHistory();
   }, 10000);
 
@@ -497,7 +640,7 @@ function loadDashboardDataFallback(callbackName) {
         error: ""
       };
       updateUnitOptions();
-      renderUnitSummaries();
+      renderBudgetSummary();
       renderHistory();
     }
   };
@@ -506,7 +649,7 @@ function loadDashboardDataFallback(callbackName) {
     window.clearTimeout(timeout);
     cleanupDashboardCallback(callbackName, fallbackScript);
     dashboardState = buildLocalDashboardState_("טעינת נתוני הגיליון נכשלה. מוצגים נתונים מקומיים. בטלפון נסה לפתוח את האתר בדפדפן הרגיל ולא רק מהמסך הראשי.");
-    renderUnitSummaries();
+    renderBudgetSummary();
     renderHistory();
   };
 
@@ -619,23 +762,8 @@ function finalizeSubmissionUI() {
 }
 
 function updateUnitOptions() {
-  const spentByUnit = new Map();
-  dashboardState.units.forEach((unit) => {
-    spentByUnit.set(unit.unitName, Number(unit.totalAmount || 0));
-  });
-
   Array.from(companySelect.options).forEach((option) => {
-    if (!option.value) {
-      return;
-    }
-    const budget = UNIT_BUDGETS[option.value];
-    if (typeof budget !== "number") {
-      option.textContent = option.value;
-      return;
-    }
-    const spent = spentByUnit.get(option.value) || 0;
-    const remaining = Math.max(0, budget - spent);
-    option.textContent = `${option.value} - ${formatCurrency(remaining)}`;
+    option.textContent = originalUnitOptionLabels.get(option.value) || option.textContent;
   });
 }
 
@@ -698,6 +826,8 @@ function saveSubmissionDefaults(payload) {
   }
   if (payload.company) {
     localStorage.setItem(LAST_UNIT_KEY, payload.company);
+    localStorage.setItem(HISTORY_UNIT_KEY, payload.company);
+    setHistoryUnit(payload.company, { persist: false, load: false });
   }
   if (payload.role) {
     localStorage.setItem(LAST_ROLE_KEY, payload.role);
@@ -802,10 +932,26 @@ function getScriptUrl() {
 }
 
 function buildLocalDashboardState_(message) {
+  const unitMap = new Map();
+  entries.forEach((entry) => {
+    const unitName = entry.company || "";
+    if (!unitName) {
+      return;
+    }
+    const current = unitMap.get(unitName) || {
+      unitName,
+      reportsCount: 0,
+      totalAmount: 0
+    };
+    current.reportsCount += 1;
+    current.totalAmount += Number(entry.amount || 0);
+    unitMap.set(unitName, current);
+  });
+
   return {
     generatedAt: new Date().toISOString(),
-    units: [],
-    recentReports: [],
+    units: Array.from(unitMap.values()),
+    recentReports: selectedHistoryUnit ? entries.filter((entry) => entry.company === selectedHistoryUnit) : [],
     loaded: true,
     error: message
   };
