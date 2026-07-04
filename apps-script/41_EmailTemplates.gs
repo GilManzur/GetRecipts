@@ -4,42 +4,66 @@ function buildReceiptEmailHtml_(queueItem) {
   const queuedAtText = formatDateTime_(queueItem.queuedAt);
   const commentsText = queueItem.comments ? escapeHtml_(queueItem.comments) : '&mdash;';
   const driveUrl = escapeAttribute_(queueItem.driveFileUrl || '');
+  const detailsGrid = [
+    buildEmailCardHtml_('יחידה', queueItem.company || '&mdash;', true),
+    buildEmailCardHtml_('שם מלא', queueItem.submitterName || '&mdash;', true),
+    buildEmailCardHtml_('תפקיד', queueItem.role || '&mdash;', true),
+    buildEmailCardHtml_('תאריך', purchaseDateText || '&mdash;', true),
+    buildEmailCardHtml_('מחיר', amountText || '&mdash;', true),
+    buildEmailCardHtml_('הועלה', queuedAtText || '&mdash;', true)
+  ].join('');
 
   return ''
     + '<!DOCTYPE html>'
-    + '<html lang="en">'
-    + '<body style="margin:0;padding:0;background-color:#eef1e7;font-family:Arial,Helvetica,sans-serif;color:#203024;">'
-    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef1e7;margin:0;padding:24px 12px;">'
+    + '<html lang="he" dir="rtl">'
+    + '<head>'
+    + '<meta charset="UTF-8">'
+    + '<meta name="viewport" content="width=device-width,initial-scale=1.0">'
+    + '<style>'
+    + 'body{margin:0;padding:0;background-color:#eef1e7;font-family:Arial,Helvetica,sans-serif;color:#203024;direction:rtl;}'
+    + 'table{border-collapse:collapse;}'
+    + '.shell{background-color:#eef1e7;margin:0;padding:24px 12px;}'
+    + '.card{max-width:640px;background-color:#ffffff;border-radius:20px;overflow:hidden;}'
+    + '.section{padding:24px;}'
+    + '.lead{font-size:24px;line-height:32px;font-weight:700;color:#203024;margin:0;}'
+    + '.sub{margin-top:8px;font-size:14px;line-height:22px;color:#5c6b56;}'
+    + '.grid{font-size:0;direction:rtl;text-align:right;}'
+    + '.field-cell{display:inline-block;vertical-align:top;width:50%;padding:6px;box-sizing:border-box;}'
+    + '.field-cell--full{width:100%;}'
+    + '.field-box{background-color:#f7f8f4;border:1px solid #d7decd;border-radius:16px;padding:14px 16px;}'
+    + '.field-label{font-size:12px;line-height:18px;font-weight:700;color:#55674b;margin-bottom:6px;}'
+    + '.field-value{font-size:15px;line-height:22px;color:#203024;}'
+    + '.button{display:inline-block;padding:14px 22px;border-radius:999px;background-color:#8ca073;color:#ffffff !important;text-decoration:none;font-weight:700;font-size:14px;line-height:14px;}'
+    + '.meta{margin-top:14px;font-size:12px;line-height:18px;color:#708066;}'
+    + '@media only screen and (max-width:600px){.field-cell{display:block !important;width:100% !important;}}'
+    + '</style>'
+    + '</head>'
+    + '<body>'
+    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="shell" dir="rtl">'
     + '<tr><td align="center">'
-    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background-color:#ffffff;border-radius:20px;overflow:hidden;">'
+    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="card" dir="rtl">'
     + '<tr><td style="background-color:#44533a;padding:0;">'
     + '<img src="cid:appHeader" alt="Receipts" width="640" style="display:block;width:100%;max-width:640px;height:auto;border:0;">'
     + '</td></tr>'
-    + '<tr><td style="padding:24px 24px 8px 24px;">'
-    + '<div style="font-size:24px;line-height:32px;font-weight:700;color:#203024;">New receipt uploaded</div>'
-    + '<div style="margin-top:8px;font-size:14px;line-height:22px;color:#5c6b56;">A new receipt was submitted through the Receipts app.</div>'
+    + '<tr><td class="section">'
+    + '<div class="lead">קבלה חדשה הועלתה</div>'
+    + '<div class="sub">התקבל דיווח חדש באפליקציית Receipts. פרטי הרכישה מופיעים כאן והקבלה מצורפת גם כקובץ.</div>'
     + '</td></tr>'
-    + '<tr><td style="padding:8px 24px 0 24px;">'
-    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:0 12px;">'
-    + buildEmailRowHtml_('Unit', queueItem.company)
-    + buildEmailRowHtml_('Full Name', queueItem.submitterName)
-    + buildEmailRowHtml_('Role', queueItem.role)
-    + buildEmailRowHtml_('Date', purchaseDateText)
-    + buildEmailRowHtml_('Price', amountText)
-    + buildEmailRowHtml_('הערות', commentsText, true)
-    + '</table>'
-    + '</td></tr>'
-    + '<tr><td style="padding:20px 24px 0 24px;">'
-    + '<div style="font-size:16px;font-weight:700;color:#203024;margin-bottom:12px;">Receipt image</div>'
-    + '<div style="background-color:#f7f8f4;border:1px solid #d7decd;border-radius:16px;padding:12px;text-align:center;">'
-    + '<img src="cid:receiptPreview" alt="Receipt image" style="display:block;width:100%;max-width:560px;height:auto;border-radius:12px;border:0;">'
+    + '<tr><td style="padding:0 18px;">'
+    + '<div class="grid">'
+    + detailsGrid
+    + buildEmailCardHtml_('הערות', commentsText, true, true)
     + '</div>'
     + '</td></tr>'
-    + '<tr><td style="padding:20px 24px 28px 24px;">'
-    + '<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:999px;background-color:#8ca073;">'
-    + '<a href="' + driveUrl + '" style="display:inline-block;padding:14px 22px;font-size:14px;line-height:14px;color:#ffffff;text-decoration:none;font-weight:700;">Open receipt in Drive</a>'
-    + '</td></tr></table>'
-    + '<div style="margin-top:14px;font-size:12px;line-height:18px;color:#708066;">Uploaded at ' + escapeHtml_(queuedAtText) + '</div>'
+    + '<tr><td class="section" style="padding-top:20px;">'
+    + '<div class="field-label" style="font-size:16px;line-height:24px;color:#203024;margin-bottom:12px;">תמונת הקבלה</div>'
+    + '<div style="background-color:#f7f8f4;border:1px solid #d7decd;border-radius:16px;padding:12px;text-align:center;">'
+    + '<img src="cid:receiptPreview" alt="תמונת קבלה" style="display:block;width:100%;max-width:560px;height:auto;border-radius:12px;border:0;">'
+    + '</div>'
+    + '</td></tr>'
+    + '<tr><td class="section" style="padding-top:0;">'
+    + '<a href="' + driveUrl + '" class="button">פתיחת הקבלה ב-Drive</a>'
+    + '<div class="meta">האימייל נשלח ברקע לאחר שההעלאה נשמרה בהצלחה.</div>'
     + '</td></tr>'
     + '</table>'
     + '</td></tr>'
@@ -48,26 +72,28 @@ function buildReceiptEmailHtml_(queueItem) {
     + '</html>';
 }
 
-function buildEmailRowHtml_(label, value, preserveHtml) {
+function buildEmailCardHtml_(label, value, preserveHtml, isFullWidth) {
   const safeValue = preserveHtml ? value : escapeHtml_(value || '');
   return ''
-    + '<tr>'
-    + '<td style="width:150px;padding:14px 16px;background-color:#f7f8f4;border:1px solid #d7decd;border-radius:14px 0 0 14px;font-size:13px;font-weight:700;color:#44533a;">' + escapeHtml_(label) + '</td>'
-    + '<td style="padding:14px 16px;background-color:#f7f8f4;border:1px solid #d7decd;border-right:none;border-radius:0 14px 14px 0;font-size:14px;line-height:20px;color:#203024;">' + safeValue + '</td>'
-    + '</tr>';
+    + '<div class="field-cell' + (isFullWidth ? ' field-cell--full' : '') + '">'
+    + '<div class="field-box">'
+    + '<div class="field-label">' + escapeHtml_(label) + '</div>'
+    + '<div class="field-value">' + safeValue + '</div>'
+    + '</div>'
+    + '</div>';
 }
 
 function buildReceiptEmailText_(queueItem) {
   return [
-    'New receipt uploaded',
+    'קבלה חדשה הועלתה',
     '',
-    'Unit: ' + (queueItem.company || ''),
-    'Full Name: ' + (queueItem.submitterName || ''),
-    'Role: ' + (queueItem.role || ''),
-    'Date: ' + formatPurchaseDate_(queueItem.purchaseDate),
-    'Price: ' + formatCurrency_(queueItem.amount),
+    'יחידה: ' + (queueItem.company || ''),
+    'שם מלא: ' + (queueItem.submitterName || ''),
+    'תפקיד: ' + (queueItem.role || ''),
+    'תאריך: ' + formatPurchaseDate_(queueItem.purchaseDate),
+    'מחיר: ' + formatCurrency_(queueItem.amount),
     'הערות: ' + (queueItem.comments || ''),
-    'Drive link: ' + (queueItem.driveFileUrl || ''),
-    'Uploaded at: ' + formatDateTime_(queueItem.queuedAt)
+    'קישור ל-Drive: ' + (queueItem.driveFileUrl || ''),
+    'הועלה: ' + formatDateTime_(queueItem.queuedAt)
   ].join('\n');
 }

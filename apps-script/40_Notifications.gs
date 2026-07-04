@@ -11,7 +11,6 @@ function processNotificationQueue() {
   }
 
   const values = sheet.getRange(2, 1, lastRow - 1, NOTIFICATION_HEADERS.length).getValues();
-  let hasChanges = false;
 
   for (let index = 0; index < values.length; index += 1) {
     const row = values[index];
@@ -22,9 +21,14 @@ function processNotificationQueue() {
       continue;
     }
 
-    hasChanges = true;
+    if (status === 'processing' && !isStaleProcessing_(row[3])) {
+      continue;
+    }
+
+    row[1] = 'processing';
     row[2] = attempts + 1;
     row[3] = new Date();
+    updateNotificationRow_(sheet, index, row);
 
     try {
       const queueItem = mapNotificationRow_(row);
@@ -37,10 +41,7 @@ function processNotificationQueue() {
       row[5] = String(error);
       console.error('Receipt notification failed', error);
     }
-  }
-
-  if (hasChanges) {
-    sheet.getRange(2, 1, values.length, NOTIFICATION_HEADERS.length).setValues(values);
+    updateNotificationRow_(sheet, index, row);
   }
 }
 
@@ -132,18 +133,39 @@ function sendReceiptNotificationEmails_(queueItem) {
     'image/png',
     'receipts-header.png'
   );
-  const subject = 'New receipt uploaded: ' + (queueItem.company || 'Receipt');
+  const subject = 'קבלה חדשה הועלתה - ' + (queueItem.company || 'ללא יחידה');
+  const htmlBody = buildReceiptEmailHtml_(queueItem);
+  const textBody = buildReceiptEmailText_(queueItem);
 
-  MailApp.sendEmail({
-    to: recipients.join(','),
-    subject: subject,
-    name: 'Receipts',
-    htmlBody: buildReceiptEmailHtml_(queueItem),
-    body: buildReceiptEmailText_(queueItem),
-    inlineImages: {
-      appHeader: headerBlob,
-      receiptPreview: inlineReceiptBlob
-    },
-    attachments: [attachmentBlob]
+  recipients.forEach(function(recipient) {
+    MailApp.sendEmail({
+      to: recipient,
+      subject: subject,
+      name: 'Receipts',
+      htmlBody: htmlBody,
+      body: textBody,
+      inlineImages: {
+        appHeader: headerBlob.copyBlob(),
+        receiptPreview: inlineReceiptBlob.copyBlob()
+      },
+      attachments: [attachmentBlob.copyBlob()]
+    });
   });
+}
+
+function updateNotificationRow_(sheet, index, row) {
+  sheet.getRange(index + 2, 1, 1, NOTIFICATION_HEADERS.length).setValues([row]);
+}
+
+function isStaleProcessing_(lastAttemptAt) {
+  if (!lastAttemptAt) {
+    return true;
+  }
+
+  const parsed = new Date(lastAttemptAt);
+  if (isNaN(parsed.getTime())) {
+    return true;
+  }
+
+  return (Date.now() - parsed.getTime()) > 15 * 60 * 1000;
 }

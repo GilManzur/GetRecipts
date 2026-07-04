@@ -9,6 +9,9 @@ function doGet(e) {
 
 function doPost(e) {
   let localId = '';
+  let saveCompleted = false;
+  let savedFileUrl = '';
+  let savedAt = '';
 
   try {
     if (!e || !e.parameter || !e.parameter.payload) {
@@ -38,6 +41,8 @@ function doPost(e) {
     const file = folder.createFile(fileBlob);
     const fileUrl = file.getUrl();
     const fileId = file.getId();
+    savedFileUrl = fileUrl;
+    savedAt = timestamp.toISOString();
 
     sheet.appendRow([
       timestamp,
@@ -53,31 +58,55 @@ function doPost(e) {
       localId
     ]);
 
-    enqueueNotification_(spreadsheet, {
-      queuedAt: timestamp,
-      company: data.company || '',
-      submitterName: data.submitterName || '',
-      role: data.role || '',
-      amount: Number(data.amount || 0),
-      purchaseDate: data.purchaseDate || '',
-      comments: data.comments || '',
-      driveFileId: fileId,
-      driveFileUrl: fileUrl,
-      fileName: file.getName(),
-      localId: localId
-    });
+    saveCompleted = true;
+
+    let notificationQueued = true;
+    let notificationError = '';
+    try {
+      enqueueNotification_(spreadsheet, {
+        queuedAt: timestamp,
+        company: data.company || '',
+        submitterName: data.submitterName || '',
+        role: data.role || '',
+        amount: Number(data.amount || 0),
+        purchaseDate: data.purchaseDate || '',
+        comments: data.comments || '',
+        driveFileId: fileId,
+        driveFileUrl: fileUrl,
+        fileName: file.getName(),
+        localId: localId
+      });
+    } catch (notificationFailure) {
+      notificationQueued = false;
+      notificationError = String(notificationFailure);
+      console.error('Receipt notification queue failed', notificationFailure);
+    }
 
     return buildBridgeResponse({
       status: 'success',
       localId: localId,
       fileUrl: fileUrl,
-      syncedAt: timestamp.toISOString()
+      syncedAt: timestamp.toISOString(),
+      notificationQueued: notificationQueued,
+      notificationError: notificationError
     });
   } catch (error) {
+    if (saveCompleted) {
+      console.error('Receipt saved but post-save sync step failed', error);
+      return buildBridgeResponse({
+        status: 'success',
+        localId: localId,
+        fileUrl: savedFileUrl,
+        syncedAt: savedAt,
+        notificationQueued: false,
+        notificationError: String(error)
+      });
+    }
+
     return buildBridgeResponse({
       status: 'error',
       localId: localId,
-      message: String(error)
+      message: 'Upload failed before the receipt was saved'
     });
   }
 }
