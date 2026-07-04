@@ -1,6 +1,6 @@
 const STORAGE_KEY = "receipt_app_entries_v1";
 const SCRIPT_URL_KEY = "receipt_script_url_v1";
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzFNgvfbYq2GFCm2HjR-iJ7gdfIMCSbU03Sd6PQA4kwmc6Exo_aVHtpFmnpoDc79h8r/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbztN5dupqyuR-lXUms7On0qEuAg22eRdfeGs8DNa2SYDbJX3KT8eAi2twZuHYZNdlcd/exec";
 const MAX_IMAGE_DIMENSION = 1600;
 const JPEG_QUALITY = 0.82;
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;

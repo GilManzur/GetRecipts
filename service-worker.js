@@ -1,4 +1,4 @@
-const CACHE_NAME = "getrecipts-static-v3";
+const CACHE_NAME = "getreceipts-static-v4";
 const ASSETS = [
   "./",
   "./index.html",

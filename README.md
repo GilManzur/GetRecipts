@@ -1,4 +1,4 @@
-# GetRecipts
+# Receipts
 
 Mobile-first Hebrew receipt submission app with free persistence through Google Apps Script, Google Sheets, and Google Drive.
 
@@ -7,7 +7,7 @@ Mobile-first Hebrew receipt submission app with free persistence through Google 
 - `index.html` - main app
 - `styles.css` - mobile-first styling
 - `app.js` - frontend logic, local storage, retry sync, hidden iframe bridge
-- `apps-script/Code.gs` - Google Apps Script backend
+- `apps-script/*.gs` - split Google Apps Script backend modules
 
 ## What it does
 
@@ -38,7 +38,7 @@ Each unit will automatically get its own tab inside the same Google Sheet. Every
 1. Create a Google Sheet that will act as the central workbook.
 2. Create a folder in Google Drive for receipt images and copy its folder ID from the URL.
 3. From inside that Google Sheet, open `Extensions -> Apps Script`.
-4. Paste the code from `apps-script/Code.gs` into the bound Apps Script project.
+4. Copy the `.gs` files from `apps-script/` into the bound Apps Script project.
 5. Replace only:
    - `PUT_YOUR_DRIVE_FOLDER_ID_HERE`
 6. Deploy the script as a Web App.
