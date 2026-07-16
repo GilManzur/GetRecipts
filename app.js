@@ -1,10 +1,9 @@
-const STORAGE_KEY = "receipt_app_entries_v1";
 const SCRIPT_URL_KEY = "receipt_script_url_v1";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbztN5dupqyuR-lXUms7On0qEuAg22eRdfeGs8DNa2SYDbJX3KT8eAi2twZuHYZNdlcd/exec";
 const MAX_IMAGE_DIMENSION = 1600;
 const JPEG_QUALITY = 0.82;
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
-const MAX_LOCAL_ENTRIES = 20;
+const LEGACY_STORAGE_KEY = "receipt_app_entries_v1";
 const LAST_NAME_KEY = "receipt_last_name_v1";
 const LAST_UNIT_KEY = "receipt_last_unit_v1";
 const LAST_ROLE_KEY = "receipt_last_role_v1";
@@ -22,15 +21,13 @@ const UNIT_BUDGETS = {
 let selectedFile = null;
 let selectedBase64 = "";
 let submittingEntryId = null;
-let entries = loadEntries();
-let syncQueue = [];
-let syncInFlight = false;
 let deferredInstallPrompt = null;
 let selectedHistoryUnit = localStorage.getItem(HISTORY_UNIT_KEY) || localStorage.getItem(LAST_UNIT_KEY) || "";
 let dashboardState = {
   units: [],
   recentReports: [],
   loaded: false,
+  loading: false,
   error: ""
 };
 
@@ -57,6 +54,10 @@ const installHelpOverlay = document.getElementById("installHelpOverlay");
 const installHelpText = document.getElementById("installHelpText");
 const cameraBtn = document.getElementById("cameraBtn");
 const galleryBtn = document.getElementById("galleryBtn");
+const uploadResultOverlay = document.getElementById("uploadResultOverlay");
+const uploadResultTitle = document.getElementById("uploadResultTitle");
+const uploadResultMessage = document.getElementById("uploadResultMessage");
+const uploadResultOkBtn = document.getElementById("uploadResultOkBtn");
 const tabButtons = Array.from(document.querySelectorAll("[data-tab]"));
 const tabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
 const originalUnitOptionLabels = new Map(
@@ -72,6 +73,7 @@ document.getElementById("closeInstallHelpBtn").addEventListener("click", () => {
 installAppBtn.addEventListener("click", handleInstallClick);
 cameraBtn.addEventListener("click", () => openFilePicker("camera"));
 galleryBtn.addEventListener("click", () => openFilePicker("gallery"));
+uploadResultOkBtn.addEventListener("click", hideUploadResultModal);
 
 fileInput.addEventListener("change", handleFileSelect);
 companySelect.addEventListener("change", handleReportUnitChange);
@@ -96,6 +98,7 @@ function bootstrap() {
   if (APPS_SCRIPT_URL) {
     localStorage.setItem(SCRIPT_URL_KEY, APPS_SCRIPT_URL);
   }
+  localStorage.removeItem(LEGACY_STORAGE_KEY);
   initializeInstallButton();
   registerServiceWorker();
   setDefaultPurchaseDate();
@@ -108,19 +111,6 @@ function bootstrap() {
   renderHistory();
   updateUnitOptions();
   loadDashboardData();
-}
-
-function loadEntries() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function persistEntries() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
 }
 
 function updateConnectionUI() {
@@ -300,32 +290,32 @@ async function handleSubmit(event) {
 
   saveSubmissionDefaults(payload);
 
-  const hasScript = Boolean(getScriptUrl());
-  const entry = {
-    ...payload,
-    localId: payload.id,
-    syncStatus: hasScript ? "pending" : "local-only",
-    syncLabel: hasScript ? "ממתין לסנכרון" : "נשמר מקומית",
-    syncError: "",
-    driveUrl: "",
-    syncedAt: "",
-    submittedAtLabel: formatDateTime(payload.createdAt)
-  };
+  const scriptUrl = getScriptUrl();
+  if (!scriptUrl) {
+    dashboardState = {
+      generatedAt: "",
+      units: [],
+      recentReports: [],
+      loaded: false,
+      loading: false,
+      error: "כתובת Apps Script לא הוגדרה."
+    };
+    renderBudgetSummary();
+    renderHistory();
+    return;
 
-  entries.unshift(entry);
-  if (entries.length > MAX_LOCAL_ENTRIES) {
-    entries = entries.slice(0, MAX_LOCAL_ENTRIES);
+    showStatus("כתובת Apps Script לא הוגדרה.", "error");
+    showUploadResultModal("error", "העלאת הדיווח נכשלה", "הקבלה לא נשמרה ב-Google Sheets או ב-Google Drive. יש להגדיר את Apps Script ולנסות שוב.");
+    return;
   }
-  persistEntries();
-  resetForm();
-  renderHistory();
 
-  if (hasScript) {
-    showStatus("הדיווח נשמר מקומית ונשלח כעת לסנכרון.", "info");
-    enqueueSync(entry.localId);
-  } else {
-    showStatus("הדיווח נשמר מקומית במכשיר. לא הוגדרה כתובת Apps Script.", "success");
-  }
+  submittingEntryId = payload.id;
+  setLoadingOverlay(true);
+  submitBtn.disabled = true;
+  submitBtn.textContent = "שולח...";
+  syncBridgeForm.action = scriptUrl;
+  payloadInput.value = JSON.stringify(payload);
+  syncBridgeForm.submit();
 }
 
 function resetForm() {
@@ -345,6 +335,11 @@ function showStatus(message, type) {
 }
 
 function renderDashboardMeta() {
+  if (dashboardState.loading) {
+    dashboardMeta.textContent = "Loading data from Google Sheets...";
+    return;
+  }
+
   if (dashboardState.error) {
     dashboardMeta.textContent = dashboardState.error;
   } else if (dashboardState.loaded) {
@@ -356,6 +351,11 @@ function renderDashboardMeta() {
 
 function renderBudgetSummary() {
   renderDashboardMeta();
+
+  if (dashboardState.loading && selectedHistoryUnit) {
+    budgetSummary.innerHTML = '<div class="empty-state">Loading unit totals...</div>';
+    return;
+  }
 
   if (!selectedHistoryUnit) {
     budgetSummary.innerHTML = '<div class="empty-state">בחר יחידה כדי לראות תקציב והיסטוריית דיווחים.</div>';
@@ -374,7 +374,7 @@ function renderBudgetSummary() {
       </div>
       <div class="budget-metric">
         <span>נותר</span>
-        <strong>${formatCurrency(Math.max(0, budget - submitted))}</strong>
+        <strong>${formatCurrency(budget - submitted)}</strong>
       </div>
     `
     : "";
@@ -399,6 +399,11 @@ function renderBudgetSummary() {
 function renderHistory() {
   if (!selectedHistoryUnit) {
     historyList.innerHTML = '<div class="empty-state">ההיסטוריה תוצג אחרי בחירת יחידה.</div>';
+    return;
+  }
+
+  if (dashboardState.loading) {
+    historyList.innerHTML = '<div class="empty-state">Loading reports from Google Sheets...</div>';
     return;
   }
 
@@ -440,7 +445,6 @@ function renderHistory() {
             <strong>${escapeHtml(entry.company)}</strong>
             <div class="history-item__meta">${escapeHtml(entry.submitterName || "")} • ${escapeHtml(entry.role || "")}</div>
           </div>
-          <span class="history-tag ${tagClass}">${tagLabel}</span>
         </div>
         <div class="history-item__bottom ${imageHtml ? "history-item__bottom--with-image" : ""}">
           <div class="history-item__meta">
@@ -458,23 +462,11 @@ function renderHistory() {
 }
 
 function getHistoryEntriesForSelectedUnit() {
-  const seen = new Set();
   const dashboardEntries = Array.isArray(dashboardState.recentReports)
     ? dashboardState.recentReports.filter((entry) => entry.company === selectedHistoryUnit)
     : [];
-  const localEntries = entries.filter((entry) => entry.company === selectedHistoryUnit);
-  const merged = [];
 
-  [...localEntries, ...dashboardEntries].forEach((entry) => {
-    const key = entry.localId || entry.id || `${entry.timestamp || entry.createdAt}-${entry.amount}-${entry.fileName}`;
-    if (seen.has(key)) {
-      return;
-    }
-    seen.add(key);
-    merged.push(entry);
-  });
-
-  return merged.sort((a, b) => {
+  return dashboardEntries.sort((a, b) => {
     const aTime = new Date(a.timestamp || a.createdAt || a.syncedAt || 0).getTime();
     const bTime = new Date(b.timestamp || b.createdAt || b.syncedAt || 0).getTime();
     return bTime - aTime;
@@ -482,16 +474,10 @@ function getHistoryEntriesForSelectedUnit() {
 }
 
 function getSelectedUnitSummary() {
-  const sheetUnit = dashboardState.units.find((unit) => unit.unitName === selectedHistoryUnit);
-  if (sheetUnit) {
-    return sheetUnit;
-  }
-
-  const localEntries = entries.filter((entry) => entry.company === selectedHistoryUnit);
-  return {
+  return dashboardState.units.find((unit) => unit.unitName === selectedHistoryUnit) || {
     unitName: selectedHistoryUnit,
-    reportsCount: localEntries.length,
-    totalAmount: localEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0)
+    reportsCount: 0,
+    totalAmount: 0
   };
 }
 
@@ -549,6 +535,10 @@ function activateTab(tabName) {
   tabPanels.forEach((panel) => {
     panel.classList.toggle("tab-panel--active", panel.dataset.tabPanel === tabName);
   });
+
+  if (tabName === "history") {
+    loadDashboardData();
+  }
 }
 
 function loadDashboardData() {
@@ -561,6 +551,17 @@ function loadDashboardData() {
   }
 
   dashboardMeta.textContent = "טוען נתונים מהגיליון...";
+  dashboardState = {
+    generatedAt: "",
+    units: [],
+    recentReports: [],
+    loaded: false,
+    loading: true,
+    error: ""
+  };
+  renderBudgetSummary();
+  renderHistory();
+
   const callbackName = `receiptDashboardCallback_${Date.now()}`;
   const separator = scriptUrl.includes("?") ? "&" : "?";
   const script = document.createElement("script");
@@ -580,6 +581,18 @@ function loadDashboardData() {
 
   const timeout = window.setTimeout(() => {
     cleanup();
+    dashboardState = {
+      generatedAt: "",
+      units: [],
+      recentReports: [],
+      loaded: false,
+      loading: false,
+      error: "Could not load data from Google Sheets."
+    };
+    renderBudgetSummary();
+    renderHistory();
+    return;
+
     dashboardState = buildLocalDashboardState_("לא ניתן לטעון נתונים מהגיליון. מוצגים נתונים מקומיים. אם ההעלאה עובדת והרענון נכשל, יש לפרוס מחדש את Apps Script.");
     renderBudgetSummary();
     renderHistory();
@@ -593,6 +606,7 @@ function loadDashboardData() {
       units: Array.isArray(payload.units) ? payload.units : [],
       recentReports: Array.isArray(payload.recentReports) ? payload.recentReports : [],
       loaded: true,
+      loading: false,
       error: ""
     };
     updateUnitOptions();
@@ -619,6 +633,18 @@ function loadDashboardDataFallback(callbackName) {
 
   const timeout = window.setTimeout(() => {
     cleanupDashboardCallback(callbackName, fallbackScript);
+    dashboardState = {
+      generatedAt: "",
+      units: [],
+      recentReports: [],
+      loaded: false,
+      loading: false,
+      error: "Could not load data from Google Sheets."
+    };
+    renderBudgetSummary();
+    renderHistory();
+    return;
+
     dashboardState = buildLocalDashboardState_("טעינת נתוני הגיליון נכשלה. מוצגים נתונים מקומיים. בטלפון נסה לפתוח את האתר בדפדפן הרגיל ולא רק מהמסך הראשי.");
     renderBudgetSummary();
     renderHistory();
@@ -636,6 +662,7 @@ function loadDashboardDataFallback(callbackName) {
         units: Array.isArray(payload.units) ? payload.units : [],
         recentReports: Array.isArray(payload.recentReports) ? payload.recentReports : [],
         loaded: true,
+        loading: false,
         error: ""
       };
       updateUnitOptions();
@@ -647,6 +674,18 @@ function loadDashboardDataFallback(callbackName) {
   fallbackScript.onerror = () => {
     window.clearTimeout(timeout);
     cleanupDashboardCallback(callbackName, fallbackScript);
+    dashboardState = {
+      generatedAt: "",
+      units: [],
+      recentReports: [],
+      loaded: false,
+      loading: false,
+      error: "Could not load data from Google Sheets."
+    };
+    renderBudgetSummary();
+    renderHistory();
+    return;
+
     dashboardState = buildLocalDashboardState_("טעינת נתוני הגיליון נכשלה. מוצגים נתונים מקומיים. בטלפון נסה לפתוח את האתר בדפדפן הרגיל ולא רק מהמסך הראשי.");
     renderBudgetSummary();
     renderHistory();
@@ -725,6 +764,19 @@ function handleMessageFromScript(event) {
     return;
   }
 
+  if (parsed.status === "success") {
+    resetForm();
+    loadDashboardData();
+    showUploadResultModal("success", "הקבלה נשמרה בהצלחה", "");
+  } else {
+    const errorMessage = parsed.message || "ההעלאה נכשלה לפני שהקבלה נשמרה.";
+    showStatus(`ההעלאה נכשלה: ${errorMessage}`, "error");
+    showUploadResultModal("error", "העלאת הדיווח נכשלה", errorMessage);
+  }
+
+  finalizeSubmissionUI();
+  return;
+
   const entry = entries.find((item) => item.localId === parsed.localId || item.localId === submittingEntryId);
   if (!entry) {
     finalizeSubmissionUI();
@@ -757,7 +809,7 @@ function finalizeSubmissionUI() {
   setLoadingOverlay(false);
   submitBtn.disabled = false;
   submitBtn.textContent = "שמור דיווח";
-  processNextSync();
+  return;
 }
 
 function updateUnitOptions() {
@@ -795,6 +847,18 @@ function getPreviewImageUrl(entry) {
 
 function setLoadingOverlay(isVisible) {
   loadingOverlay.classList.toggle("hidden", !isVisible);
+}
+
+function showUploadResultModal(type, title, message) {
+  uploadResultOverlay.dataset.state = type;
+  uploadResultTitle.textContent = title;
+  uploadResultMessage.textContent = message;
+  uploadResultOverlay.classList.remove("hidden");
+}
+
+function hideUploadResultModal() {
+  uploadResultOverlay.classList.add("hidden");
+  delete uploadResultOverlay.dataset.state;
 }
 
 function setDefaultPurchaseDate() {
@@ -988,4 +1052,255 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function loadDashboardData() {
+  const scriptUrl = getScriptUrl();
+  if (!scriptUrl) {
+    dashboardState = {
+      generatedAt: "",
+      units: [],
+      recentReports: [],
+      loaded: false,
+      loading: false,
+      error: "כתובת Apps Script לא הוגדרה."
+    };
+    renderBudgetSummary();
+    renderHistory();
+    return;
+  }
+
+  dashboardState = {
+    generatedAt: "",
+    units: [],
+    recentReports: [],
+    loaded: false,
+    loading: true,
+    error: ""
+  };
+  renderBudgetSummary();
+  renderHistory();
+
+  const callbackName = `receiptDashboardCallback_${Date.now()}`;
+  const separator = scriptUrl.includes("?") ? "&" : "?";
+  const script = document.createElement("script");
+  const unitParam = selectedHistoryUnit ? `&unit=${encodeURIComponent(selectedHistoryUnit)}` : "";
+  script.src = `${scriptUrl}${separator}action=dashboard&callback=${callbackName}${unitParam}&_ts=${Date.now()}`;
+  script.async = true;
+
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) {
+      return;
+    }
+    cleaned = true;
+    delete window[callbackName];
+    script.remove();
+  };
+
+  const failLoad = () => {
+    dashboardState = {
+      generatedAt: "",
+      units: [],
+      recentReports: [],
+      loaded: false,
+      loading: false,
+      error: "Could not load data from Google Sheets."
+    };
+    renderBudgetSummary();
+    renderHistory();
+  };
+
+  const timeout = window.setTimeout(() => {
+    cleanup();
+    failLoad();
+  }, 10000);
+
+  window[callbackName] = (payload) => {
+    window.clearTimeout(timeout);
+    cleanup();
+    dashboardState = {
+      generatedAt: payload.generatedAt,
+      units: Array.isArray(payload.units) ? payload.units : [],
+      recentReports: Array.isArray(payload.recentReports) ? payload.recentReports : [],
+      loaded: true,
+      loading: false,
+      error: ""
+    };
+    updateUnitOptions();
+    renderBudgetSummary();
+    renderHistory();
+  };
+
+  script.onerror = () => {
+    window.clearTimeout(timeout);
+    cleanup();
+    loadDashboardDataFallback(callbackName);
+  };
+
+  document.body.appendChild(script);
+}
+
+function loadDashboardDataFallback(callbackName) {
+  const scriptUrl = getScriptUrl();
+  const separator = scriptUrl.includes("?") ? "&" : "?";
+  const fallbackScript = document.createElement("script");
+  const unitParam = selectedHistoryUnit ? `&unit=${encodeURIComponent(selectedHistoryUnit)}` : "";
+  fallbackScript.src = `${scriptUrl}${separator}action=dashboard&callback=${callbackName}${unitParam}&mobile=1&_ts=${Date.now()}`;
+  fallbackScript.async = true;
+
+  const failLoad = () => {
+    dashboardState = {
+      generatedAt: "",
+      units: [],
+      recentReports: [],
+      loaded: false,
+      loading: false,
+      error: "Could not load data from Google Sheets."
+    };
+    renderBudgetSummary();
+    renderHistory();
+  };
+
+  const timeout = window.setTimeout(() => {
+    cleanupDashboardCallback(callbackName, fallbackScript);
+    failLoad();
+  }, 10000);
+
+  const originalCallback = window[callbackName];
+  window[callbackName] = (payload) => {
+    window.clearTimeout(timeout);
+    cleanupDashboardCallback(callbackName, fallbackScript);
+    if (typeof originalCallback === "function") {
+      originalCallback(payload);
+      return;
+    }
+
+    dashboardState = {
+      generatedAt: payload.generatedAt,
+      units: Array.isArray(payload.units) ? payload.units : [],
+      recentReports: Array.isArray(payload.recentReports) ? payload.recentReports : [],
+      loaded: true,
+      loading: false,
+      error: ""
+    };
+    updateUnitOptions();
+    renderBudgetSummary();
+    renderHistory();
+  };
+
+  fallbackScript.onerror = () => {
+    window.clearTimeout(timeout);
+    cleanupDashboardCallback(callbackName, fallbackScript);
+    failLoad();
+  };
+
+  document.body.appendChild(fallbackScript);
+}
+
+function cleanupDashboardCallback(callbackName, scriptElement) {
+  if (scriptElement && scriptElement.parentNode) {
+    scriptElement.parentNode.removeChild(scriptElement);
+  }
+  delete window[callbackName];
+}
+
+function handleMessageFromScript(event) {
+  if (typeof event.data !== "string" || !event.data.startsWith("receipt-sync:")) {
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(event.data.replace("receipt-sync:", ""));
+  } catch {
+    return;
+  }
+
+  if (parsed.status === "success") {
+    resetForm();
+    loadDashboardData();
+    showUploadResultModal("success", "הקבלה נשמרה בהצלחה", "");
+  } else {
+    const errorMessage = parsed.message || "ההעלאה נכשלה לפני שהקבלה נשמרה.";
+    showStatus(`ההעלאה נכשלה: ${errorMessage}`, "error");
+    showUploadResultModal("error", "העלאת הדיווח נכשלה", errorMessage);
+  }
+
+  finalizeSubmissionUI();
+}
+
+function finalizeSubmissionUI() {
+  submittingEntryId = null;
+  setLoadingOverlay(false);
+  submitBtn.disabled = false;
+  submitBtn.textContent = "שמור דיווח";
+}
+
+function getHistoryEntriesForSelectedUnit() {
+  const dashboardEntries = Array.isArray(dashboardState.recentReports)
+    ? dashboardState.recentReports.filter((entry) => entry.company === selectedHistoryUnit)
+    : [];
+
+  return dashboardEntries.sort((a, b) => {
+    const aTime = new Date(a.timestamp || 0).getTime();
+    const bTime = new Date(b.timestamp || 0).getTime();
+    return bTime - aTime;
+  });
+}
+
+function getSelectedUnitSummary() {
+  return dashboardState.units.find((unit) => unit.unitName === selectedHistoryUnit) || {
+    unitName: selectedHistoryUnit,
+    reportsCount: 0,
+    totalAmount: 0
+  };
+}
+
+function getPreviewImageUrl(entry) {
+  const rawUrl = entry.driveFileUrl || entry.driveUrl || "";
+  const fileIdMatch = rawUrl.match(/[-\w]{25,}/);
+  if (!fileIdMatch) {
+    return "";
+  }
+  return `https://drive.google.com/thumbnail?id=${fileIdMatch[0]}&sz=w200`;
+}
+
+async function handleSubmit(event) {
+  event.preventDefault();
+
+  if (!validateForm()) {
+    showStatus("יש למלא את כל שדות החובה.", "error");
+    return;
+  }
+
+  const payload = {
+    id: crypto.randomUUID(),
+    company: document.getElementById("company").value,
+    submitterName: document.getElementById("submitterName").value.trim(),
+    role: document.getElementById("role").value.trim(),
+    amount: document.getElementById("amount").value,
+    purchaseDate: document.getElementById("purchaseDate").value,
+    comments: document.getElementById("comments").value.trim(),
+    fileName: selectedFile.name,
+    fileData: selectedBase64,
+    createdAt: new Date().toISOString()
+  };
+
+  saveSubmissionDefaults(payload);
+
+  const scriptUrl = getScriptUrl();
+  if (!scriptUrl) {
+    showStatus("כתובת Apps Script לא הוגדרה.", "error");
+    showUploadResultModal("error", "העלאת הדיווח נכשלה", "הקבלה לא נשמרה ב-Google Sheets או ב-Google Drive. יש להגדיר את Apps Script ולנסות שוב.");
+    return;
+  }
+
+  submittingEntryId = payload.id;
+  setLoadingOverlay(true);
+  submitBtn.disabled = true;
+  submitBtn.textContent = "שולח...";
+  syncBridgeForm.action = scriptUrl;
+  payloadInput.value = JSON.stringify(payload);
+  syncBridgeForm.submit();
 }
